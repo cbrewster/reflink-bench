@@ -30,10 +30,14 @@ pub struct FilesystemManager {
 
 impl FilesystemManager {
     pub fn new(fs_type: FilesystemType, size_gb: u64) -> Result<Self> {
-        let image_path = PathBuf::from(format!("/tmp/reflink-bench-{}.img", 
-                                             format!("{:?}", fs_type).to_lowercase()));
-        let mount_point = PathBuf::from(format!("/tmp/reflink-bench-{}", 
-                                              format!("{:?}", fs_type).to_lowercase()));
+        let image_path = PathBuf::from(format!(
+            "/tmp/reflink-bench-{}.img",
+            format!("{:?}", fs_type).to_lowercase()
+        ));
+        let mount_point = PathBuf::from(format!(
+            "/tmp/reflink-bench-{}",
+            format!("{:?}", fs_type).to_lowercase()
+        ));
 
         Ok(Self {
             fs_type,
@@ -58,21 +62,23 @@ impl FilesystemManager {
         if self.mount_point.exists() {
             let _ = self.unmount_filesystem().await;
         }
-        
+
         if let Some(loop_dev) = &self.loop_device {
             let _ = self.detach_loop_device(loop_dev).await;
         }
-        
+
         if self.image_path.exists() {
-            fs::remove_file(&self.image_path).await
+            fs::remove_file(&self.image_path)
+                .await
                 .context("Failed to remove filesystem image")?;
         }
-        
+
         if self.mount_point.exists() {
-            fs::remove_dir(&self.mount_point).await
+            fs::remove_dir(&self.mount_point)
+                .await
                 .context("Failed to remove mount point")?;
         }
-        
+
         Ok(())
     }
 
@@ -92,17 +98,17 @@ impl FilesystemManager {
         if self.mount_point.exists() {
             let _ = umount(&self.mount_point);
         }
-        
+
         if self.image_path.exists() {
             fs::remove_file(&self.image_path).await.ok();
         }
-        
+
         Ok(())
     }
 
     async fn create_image(&self) -> Result<()> {
         let size_mb = self.size_gb * 1024;
-        
+
         let output = Command::new("dd")
             .args([
                 "if=/dev/zero",
@@ -127,7 +133,10 @@ impl FilesystemManager {
             .context("Failed to setup loop device")?;
 
         if !output.status.success() {
-            anyhow::bail!("losetup failed: {}", String::from_utf8_lossy(&output.stderr));
+            anyhow::bail!(
+                "losetup failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
 
         let loop_device = String::from_utf8(output.stdout)
@@ -140,7 +149,9 @@ impl FilesystemManager {
     }
 
     async fn format_filesystem(&self) -> Result<()> {
-        let loop_device = self.loop_device.as_ref()
+        let loop_device = self
+            .loop_device
+            .as_ref()
             .context("Loop device not set up")?;
 
         let (cmd, args): (&str, Vec<&str>) = match self.fs_type {
@@ -154,7 +165,11 @@ impl FilesystemManager {
             .context(format!("Failed to format {} filesystem", self.fs_type))?;
 
         if !output.status.success() {
-            anyhow::bail!("{} failed: {}", cmd, String::from_utf8_lossy(&output.stderr));
+            anyhow::bail!(
+                "{} failed: {}",
+                cmd,
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
 
         Ok(())
@@ -162,14 +177,17 @@ impl FilesystemManager {
 
     async fn create_mount_point(&self) -> Result<()> {
         if !self.mount_point.exists() {
-            fs::create_dir_all(&self.mount_point).await
+            fs::create_dir_all(&self.mount_point)
+                .await
                 .context("Failed to create mount point")?;
         }
         Ok(())
     }
 
     async fn mount_filesystem(&self) -> Result<()> {
-        let loop_device = self.loop_device.as_ref()
+        let loop_device = self
+            .loop_device
+            .as_ref()
             .context("Loop device not set up")?;
 
         let fs_type_str = match self.fs_type {
@@ -183,7 +201,8 @@ impl FilesystemManager {
             Some(fs_type_str),
             MsFlags::empty(),
             None::<&str>,
-        ).context("Failed to mount filesystem")?;
+        )
+        .context("Failed to mount filesystem")?;
 
         // Set permissions for non-root access
         Command::new("chmod")
@@ -195,8 +214,7 @@ impl FilesystemManager {
     }
 
     async fn unmount_filesystem(&self) -> Result<()> {
-        umount(&self.mount_point)
-            .context("Failed to unmount filesystem")?;
+        umount(&self.mount_point).context("Failed to unmount filesystem")?;
         Ok(())
     }
 
@@ -207,7 +225,10 @@ impl FilesystemManager {
             .context("Failed to detach loop device")?;
 
         if !output.status.success() {
-            anyhow::bail!("losetup -d failed: {}", String::from_utf8_lossy(&output.stderr));
+            anyhow::bail!(
+                "losetup -d failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
 
         Ok(())
