@@ -268,10 +268,6 @@ impl BenchmarkRunner {
             .write_all(&write_data)
             .context("Failed to write to target file")?;
 
-        target_file
-            .sync_all()
-            .context("Failed to sync target file")?;
-
         Ok(())
     }
 
